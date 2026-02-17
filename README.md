@@ -1,2 +1,163 @@
-# SmartSort
-SmartSort- is a system of alerts and sensors for correct trash sorting and analyzing pollutions
+# ♻️ SmartSort — Умная система мониторинга контейнеров
+
+> Система реального времени для управления раздельным сбором отходов в Алматы
+
+![Platform](https://img.shields.io/badge/Platform-Web-blue)
+![Backend](https://img.shields.io/badge/Backend-FastAPI-green)
+![Frontend](https://img.shields.io/badge/Frontend-React-61dafb)
+![AI](https://img.shields.io/badge/AI-Claude%20API-orange)
+![Hardware](https://img.shields.io/badge/Hardware-ESP32-red)
+
+---
+
+## 🎯 Проблема
+
+- Люди выбрасывают неподходящий мусор — вся партия идёт на полигон
+- Сборщики узнают о переполнении слишком поздно
+- Вывоз по расписанию, а не по реальной потребности — лишние рейсы
+
+## 💡 Решение
+
+SmartSort — трёхуровневая система:
+
+```
+[ESP32 датчик] → [FastAPI сервер] → [React панель диспетчера]
+                       ↕
+                  [AI помощник]
+```
+
+---
+
+## 🏗 Архитектура
+
+### Уровень 1 — Железо (ESP32)
+| Компонент | Функция | Стоимость |
+|-----------|---------|-----------|
+| HC-SR04 | Измерение уровня заполнения | 2 000 тг |
+| Тензодатчик + HX711 | Определение веса / нарушений | 3 000 тг |
+| ESP32 | Микроконтроллер + Wi-Fi | 3 500 тг |
+| OLED SSD1306 | Дисплей статуса | — |
+| Зуммер | Звуковой алерт | — |
+| **Итого** | **1 устройство** | **19 500 тг** |
+
+**Логика датчика:**
+- HC-SR04 → расстояние до мусора → процент заполнения
+- Тензодатчик → вес → аномалия = нарушение сортировки
+- При 70% → жёлтый LED + алерт `warning`
+- При 90% → красный LED + зуммер + алерт `critical`
+- Каждые 3 сек → HTTP POST `/sensor` на сервер
+
+### Уровень 2 — Бэкенд (Python FastAPI)
+
+```
+POST /sensor          ← данные с ESP32
+GET  /containers      ← список всех контейнеров
+GET  /alerts          ← лента алертов
+GET  /analytics       ← аналитика по районам
+GET  /route           ← оптимальный маршрут
+WS   /ws              ← WebSocket real-time обновления
+```
+
+- **WebSocket** — задержка от события до интерфейса < 2 сек
+- **SQLite** — хранение истории контейнеров и алертов
+- **Симулятор** — генерирует данные по 20 контейнерам
+
+### Уровень 3 — Фронтенд (React)
+
+| Страница | Функционал |
+|----------|-----------|
+| 🗺 Карта | Все контейнеры на карте, фильтры по типу мусора, алерт-лента |
+| 📊 Аналитика | Рейтинг районов, типы мусора, ML-прогноз |
+| 🚛 Маршрут | Список адресов по приоритету, отметка выполнения |
+| 🤖 AI чат | Помощник диспетчера на базе Claude API |
+
+---
+
+## 🤖 AI Помощник
+
+Использует **Claude (Anthropic)** с контекстным окном реальных данных:
+
+```
+Диспетчер: "Куда ехать первым?"
+AI: "Улица Абая 45 — критично (98%), есть нарушение сортировки"
+```
+
+При каждом запросе AI получает актуальный снимок системы — количество критических контейнеров, рейтинг районов, список нарушений.
+
+---
+
+## 🚀 Запуск
+
+### Бэкенд
+```bash
+cd backend
+pip install -r requirements.txt
+uvicorn main:app --reload
+```
+
+### Фронтенд
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+### Переменные окружения
+Создай файл `.env` в папке `frontend/`:
+```
+VITE_ANTHROPIC_KEY=sk-ant-...
+```
+
+### Датчик (Wokwi)
+1. Открой [wokwi.com](https://wokwi.com) → New Project → ESP32
+2. Вставь код из `sensor/smartsort_sensor.ino`
+3. Вставь схему из `sensor/diagram.json`
+4. Замени `YOUR_SERVER` на свой адрес
+5. Запусти симуляцию ▶️
+
+---
+
+## 📁 Структура проекта
+
+```
+smartsort/
+├── backend/
+│   ├── main.py          # FastAPI + WebSocket + /sensor
+│   ├── database.py      # SQLite модели
+│   ├── simulator.py     # Симулятор данных
+│   └── requirements.txt
+├── frontend/
+│   ├── src/
+│   │   ├── App.jsx
+│   │   └── components/
+│   │       ├── Map.jsx
+│   │       ├── Analytics.jsx
+│   │       ├── Route.jsx
+│   │       ├── AlertFeed.jsx
+│   │       └── AIChat.jsx
+│   └── index.css
+└── sensor/
+    ├── smartsort_sensor.ino
+    └── diagram.json
+```
+
+---
+
+## 📊 Стек технологий
+
+| Слой | Технология |
+|------|-----------|
+| Микроконтроллер | ESP32, Arduino C++ |
+| Датчики | HC-SR04, HX711 |
+| Бэкенд | Python 3.11, FastAPI, WebSocket |
+| База данных | SQLite, SQLAlchemy |
+| Фронтенд | React 18, Leaflet.js |
+| AI | Claude API (Anthropic) |
+| Симуляция железа | Wokwi |
+
+---
+
+## 👥 Команда
+
+Хакатон — Актау, 2025
+Кейс 2: Умные контейнеры для переработки
